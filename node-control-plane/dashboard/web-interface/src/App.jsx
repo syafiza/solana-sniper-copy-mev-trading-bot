@@ -92,8 +92,8 @@ const Message = ({ msg }) => {
       <div className={`max-w-[85%] ${isUser ? 'order-2' : 'order-1'}`}>
         <div
           className={`p-3 rounded-2xl text-sm leading-relaxed ${isUser
-              ? 'bg-blue-600 text-white rounded-br-none'
-              : 'bg-zinc-800 text-zinc-100 rounded-bl-none border border-zinc-700'
+            ? 'bg-blue-600 text-white rounded-br-none'
+            : 'bg-zinc-800 text-zinc-100 rounded-bl-none border border-zinc-700'
             }`}
         >
           {msg.content}
@@ -141,41 +141,30 @@ function App() {
     setLoading(true);
 
     try {
-      // Simulate Generative Logic (In real app, this calls an LLM or Intent Classifier)
-      // Here we map keywords to widgets for demonstration
-      await new Promise(r => setTimeout(r, 600)); // Fake latency
+      // Call Real Qwen AI Backend
+      const res = await axios.post('http://localhost:3000/api/chat', {
+        message: input,
+        history: messages.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }))
+      });
 
-      const lowerInput = userMsg.content.toLowerCase();
-      let responseMsg = { id: Date.now() + 1, role: 'bot', content: "Command executed." };
+      const { content, widget } = res.data;
 
-      if (lowerInput.includes('status')) {
-        // Fetch real status
-        // const res = await axios.get('http://localhost:3000/api/status');
-        const mockData = { status: 'running', uptime: 1234, version: '2.0.0' };
-        responseMsg.content = "Here is the current system status.";
-        responseMsg.widget = { type: 'status', data: mockData };
-      }
-      else if (lowerInput.includes('risk')) {
-        const mockData = { riskLevel: 'LOW', score: 15, openPositions: 2, exposure: 0.5 };
-        responseMsg.content = "Risk assessment generated.";
-        responseMsg.widget = { type: 'risk', data: mockData };
-      }
-      else if (lowerInput.includes('position')) {
-        const mockData = [
-          { mint: 'So111...111', pnl: 12.5, entryPrice: 0.002, value: 0.5 },
-          { mint: 'Bonk...Bonk', pnl: -2.3, entryPrice: 0.0001, value: 0.1 }
-        ];
-        responseMsg.content = `Found ${mockData.length} active positions.`;
-        responseMsg.widget = { type: 'positions', data: mockData };
-      }
-      else {
-        responseMsg.content = `I processed "${userMsg.content}" but no specific visualization was triggered. Try 'status', 'risk', or 'positions'.`;
-      }
+      const responseMsg = {
+        id: Date.now() + 1,
+        role: 'bot',
+        content: content || "I processed that, but have no text response.",
+        widget: widget
+      };
 
       setMessages(prev => [...prev, responseMsg]);
 
     } catch (err) {
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'bot', content: "Error processing command." }]);
+      console.error(err);
+      let errorMsg = "Error connecting to AI Command Center.";
+      if (err.response && err.response.data && err.response.data.content) {
+        errorMsg = err.response.data.content; // Show Setup Required message
+      }
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'bot', content: errorMsg }]);
     } finally {
       setLoading(false);
     }
