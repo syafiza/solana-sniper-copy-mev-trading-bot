@@ -32,12 +32,12 @@
     "tweetnacl": "^1.0.3",
     "util": "^0.12.5",
     "websocket": "^1.0.35",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
-  "type": "module",
   "engines": {
     "node": ">=16.0.0"
   }

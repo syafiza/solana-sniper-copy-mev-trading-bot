@@ -30,17 +30,8 @@ pub struct TradeDispatcher {
 
 impl TradeDispatcher {
     pub async fn new(db: Database) -> Self {
-        // Fetch whitelisted users
-        let ids = match db.users
-            .find(mongodb::bson::doc! { "is_whitelisted": true }, None)
-            .await 
-        {
-            Ok(cursor) => {
-                use futures::StreamExt;
-                cursor.map(|r| r.unwrap().telegram_id).collect().await
-            },
-            Err(_) => Vec::new(),
-        };
+        // Fetch whitelisted users using new DB method
+        let ids = db.get_whitelisted_users().await.unwrap_or_default();
 
         TradeDispatcher { 
             db, 
@@ -69,7 +60,8 @@ impl TradeDispatcher {
         let user_opt = self.db.get_user(telegram_id).await.unwrap_or(None);
         if let Some(user) = user_opt {
              if let Some(wallet_id) = user.trading_wallet_id {
-                if let Some(wallet_entry) = user.wallets.iter().find(|w| w.id == wallet_id) {
+                // Determine wallet entry by matching integer ID
+                if let Some(wallet_entry) = user.wallets.iter().find(|w| w.id == Some(wallet_id)) {
                     if let Ok(keypair) = decrypt_keypair(&wallet_entry.private_key_enc) {
                         
                         let amount = user.min_tokens_to_buy.unwrap_or(100_000.0) as u64; // Default amount

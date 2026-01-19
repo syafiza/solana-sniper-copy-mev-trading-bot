@@ -3,6 +3,7 @@ import { pump_geyser } from "./main.js";
 import { config, validateConfig } from "./config.js";
 import logger from "./utils/logger.js";
 import notificationService from "./services/notifications.js";
+import telegramBotService from "./services/telegramBot.js";
 import riskManager from "./services/riskManager.js";
 
 // Start dashboard server if enabled
@@ -31,7 +32,7 @@ const checkWalletBalance = async () => {
   try {
     const { getBalance } = await import("./swap.js");
     const balance = await getBalance();
-    
+
     if (balance < 1) {
       logger.error("Wallet balance is below 1 SOL. Current balance:", balance, "SOL");
       await notificationService.sendNotification(
@@ -41,14 +42,14 @@ const checkWalletBalance = async () => {
       );
       process.exit(1);
     }
-    
+
     logger.info(`Wallet balance: ${balance} SOL`);
     await notificationService.sendNotification(
       `✅ Bot startup successful. Wallet balance: ${balance} SOL`,
       'success',
       { balance }
     );
-    
+
     return balance;
   } catch (err) {
     logger.error("Error checking wallet balance", err);
@@ -65,13 +66,16 @@ const checkWalletBalance = async () => {
 const main = async () => {
   try {
     logger.info("🚀 Starting Solana Trading Bot...");
-    
+
     // Check wallet balance
     await checkWalletBalance();
-    
+
     // Start the main bot
     await pump_geyser();
-    
+
+    // Start Telegram Command Listener 
+    telegramBotService.initialize();
+
     // Send startup notification
     await notificationService.notifyBotStatus("Started", {
       timestamp: new Date().toISOString(),
@@ -81,9 +85,9 @@ const main = async () => {
         pools: config.pools,
       },
     });
-    
+
     logger.info("✅ Bot startup completed successfully");
-    
+
   } catch (error) {
     logger.error("❌ Bot startup failed", error);
     await notificationService.notifyError(error, "Bot Startup");
@@ -117,11 +121,11 @@ process.on('unhandledRejection', async (reason, promise) => {
 const handleShutdown = async (reason) => {
   try {
     logger.info("Initiating graceful shutdown...");
-    
+
     // Get final statistics
     const finalStats = riskManager.getDailyStats();
     const riskMetrics = riskManager.getRiskMetrics();
-    
+
     // Send shutdown notification
     await notificationService.notifyBotStatus("Shutdown", {
       reason,
@@ -129,16 +133,16 @@ const handleShutdown = async (reason) => {
       riskMetrics,
       timestamp: new Date().toISOString(),
     });
-    
+
     // Close dashboard server if running
     if (dashboardServer) {
       logger.info("Closing dashboard server...");
       // Note: In a real implementation, you'd want to properly close the Express server
     }
-    
+
     logger.info("Graceful shutdown completed");
     process.exit(0);
-    
+
   } catch (error) {
     logger.error("Error during shutdown", error);
     process.exit(1);

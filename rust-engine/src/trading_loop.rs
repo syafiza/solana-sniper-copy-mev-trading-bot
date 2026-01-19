@@ -47,8 +47,8 @@ pub async fn start_trading_loop(mut mint_rx: Receiver<BuyOrder>, mut sell_rx: Re
     };
     
     // Initialize Database and Dispatcher
-    let mongo_uri = std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
-    let db = crate::db::Database::new(&mongo_uri, "solana_bot").await.expect("Failed to connect to MongoDB");
+    let pg_config = std::env::var("POSTGRES_CONFIG").unwrap_or_else(|_| "host=localhost user=postgres password=password dbname=solana_bot".to_string());
+    let db = crate::db::Database::new(&pg_config, "solana_bot").await.expect("Failed to connect to PostgreSQL");
     let dispatcher = Arc::new(crate::TradeDispatcher::TradeDispatcher::new(db).await);
 
     // ─── SPAWN BLOCKHASH REFRESHER ───
