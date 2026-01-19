@@ -45,6 +45,11 @@ pub async fn start_trading_loop(mut mint_rx: Receiver<BuyOrder>, mut sell_rx: Re
         rpc_nonblocking_client: rpc_nonblocking.clone(),
         wallet: wallet.clone(),
     };
+    
+    // Initialize Database and Dispatcher
+    let mongo_uri = std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+    let db = crate::db::Database::new(&mongo_uri, "solana_bot").await.expect("Failed to connect to MongoDB");
+    let dispatcher = Arc::new(crate::TradeDispatcher::TradeDispatcher::new(db).await);
 
     // ─── SPAWN BLOCKHASH REFRESHER ───
     // This will keep a fresh recent‐blockhash in the background so sends never stall
@@ -61,58 +66,31 @@ pub async fn start_trading_loop(mut mint_rx: Receiver<BuyOrder>, mut sell_rx: Re
         .expect("failed to init tip engine");
     // stash env vars once
     let slippage_bps = import_env_var("SLIPPAGE").parse::<u16>().unwrap_or(15);
-    let buy_amount_sol = import_env_var("BUY_AMOUNT_SOL")
-        .parse::<f64>()
-        .unwrap_or(0.01);
-
+    
     // initialize our OnceLocks
     let lamports_per_sol = *LAMPORTS_PER_SOL_U64.get_or_init(|| native_token::LAMPORTS_PER_SOL);
-    let buy_amount_lamports = (buy_amount_sol * lamports_per_sol as f64) as u64;
     let pump_program_key =
         *PUMP_PROGRAM_KEY.get_or_init(|| Pubkey::from_str(PUMP_PROGRAM).unwrap());
 
     loop {
         tokio::select! {
             // ───────── BUY ORDERS ─────────
-            Some(BuyOrder { mint, creator, use_jito, urgent }) = mint_rx.recv() => {
-                let mint_pk = Pubkey::from_str(&mint).unwrap();
-                // derive creator vault address
-                let (creator_vault, _) =
-                    Pubkey::find_program_address(&[b"creator-vault", creator.as_ref()], &pump_program_key);
-
-                let input = SwapInput {
-                    input_token_mint:  spl_token::native_mint::ID,
-                    output_token_mint: mint_pk,
-                    slippage_bps,
-                    amount:            buy_amount_lamports,
-                    mode:              SwapExecutionMode::ExactIn,
-                    market:            None,
-                    creator_vault:     Some(creator_vault),
-                };
-
+            Some(buy_order) = mint_rx.recv() => {
+                let dispatcher_clone = dispatcher.clone();
                 let app_clone = app.clone();
+                
                 tokio::spawn(async move {
-                    let _ = pump_swap(app_clone, input, "buy", use_jito, urgent).await;
+                    dispatcher_clone.dispatch_buy(buy_order, app_clone).await;
                 });
             }
 
             // ───────── SELL ORDERS ────────
-            Some(SellOrder { mint, amount, use_jito, urgent }) = sell_rx.recv() => {
-                let mint_pk = Pubkey::from_str(&mint).unwrap();
-
-                let input = SwapInput {
-                    input_token_mint:  mint_pk,
-                    output_token_mint: spl_token::native_mint::ID,
-                    slippage_bps,
-                    amount,
-                    mode:              SwapExecutionMode::ExactOut,
-                    market:            None,
-                    creator_vault:     None,
-                };
-
+            Some(sell_order) = sell_rx.recv() => {
+                let dispatcher_clone = dispatcher.clone();
                 let app_clone = app.clone();
+                
                 tokio::spawn(async move {
-                    let _ = pump_swap(app_clone, input, "sell", use_jito, urgent).await;
+                    dispatcher_clone.dispatch_sell(sell_order, app_clone).await;
                 });
             }
         }

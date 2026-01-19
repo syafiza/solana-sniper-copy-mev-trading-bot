@@ -105,3 +105,22 @@ impl SwapExecutionMode {
         matches!(self, SwapExecutionMode::ExactIn)
     }
 }
+impl Default for SwapExecutionMode {
+    fn default() -> Self {
+        Self::ExactIn
+    }
+}
+
+impl Default for SwapInput {
+    fn default() -> Self {
+        Self {
+            input_token_mint: Pubkey::default(),
+            output_token_mint: Pubkey::default(),
+            slippage_bps: 50,
+            amount: 0,
+            mode: SwapExecutionMode::default(),
+            market: None,
+            creator_vault: None,
+        }
+    }
+}

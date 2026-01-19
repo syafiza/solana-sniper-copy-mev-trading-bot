@@ -176,4 +176,72 @@ pub fn derive_address_from_mnemonic(
     }
 }
 
+// -----------------------------------------------------------------------------
+// Transaction Parsing Helpers
+// -----------------------------------------------------------------------------
+
+use solana_transaction_status::VersionedTransactionWithStatusMeta;
+use shared_state::BuyOrder;
+use tokio::sync::mpsc::Sender;
+
+pub struct ResolvedAccount {
+    pub pubkey: Pubkey,
+    pub is_signer: bool,
+    pub is_writable: bool,
+}
+
+pub struct ResolvedInstruction {
+    pub program_id: Pubkey,
+    pub accounts: Vec<ResolvedAccount>,
+    pub data: Vec<u8>,
+}
+
+pub struct TransactionInstructionWithMeta {
+    pub instruction: ResolvedInstruction,
+}
+
+pub fn flatten_transaction_response(
+    vtx: &VersionedTransactionWithStatusMeta,
+) -> Vec<TransactionInstructionWithMeta> {
+    let mut instructions = Vec::new();
+    let account_keys = vtx.transaction.message.static_account_keys();
+    
+    for ix in vtx.transaction.message.instructions() {
+        let program_id = account_keys.get(ix.program_id_index as usize).copied().unwrap_or_default();
+        
+        let accounts = ix.accounts.iter().map(|&idx| {
+            let pubkey = account_keys.get(idx as usize).copied().unwrap_or_default();
+            ResolvedAccount { pubkey, is_signer: false, is_writable: false }
+        }).collect();
+
+        instructions.push(TransactionInstructionWithMeta {
+            instruction: ResolvedInstruction {
+                program_id,
+                accounts,
+                data: ix.data.clone(),
+            }
+        });
+    }
+
+    instructions
+}
+
+pub async fn try_send_buy_if_allowed(
+    mint: &str,
+    creator: Pubkey,
+    _first_buy: bool,
+    urgent: bool,
+    sender: &Sender<BuyOrder>,
+) {
+    let order = BuyOrder {
+        mint: mint.to_string(),
+        creator,
+        use_jito: true,
+        urgent,
+    };
+    if let Err(e) = sender.send(order).await {
+        log::error!("Failed to send buy order to channel: {}", e);
+    }
+}
+
 
