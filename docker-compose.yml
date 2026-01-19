@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: solana_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: solana_bot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./rust-engine/schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+  rust-engine:
+    build:
+      context: ./rust-engine
+      dockerfile: Dockerfile
+    container_name: solana_rust_engine
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_CONFIG: "host=postgres user=postgres password=password dbname=solana_bot"
+      RPC_URL: ${RPC_URL:-https://api.mainnet-beta.solana.com}
+      # PRIVATE_KEY and WALLET should be set in .env
+    volumes:
+      - ./rust-engine:/app
+
+  node-control-plane:
+    build:
+      context: ./node-control-plane
+      dockerfile: Dockerfile
+    container_name: solana_node_control
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - rust-engine
+    ports:
+      - "3000:3000"
+    environment:
+      POSTGRES_URI: "postgresql://postgres:password@postgres:5432/solana_bot"
+      DASHBOARD_PORT: 3000
+    volumes:
+      # Mount dev files for hot reload if needed, but build copies them
+      - ./node-control-plane:/app
+
+volumes:
+  postgres_data:

@@ -65,7 +65,7 @@ borsh-derive = "1.5.3"
 solana-transaction-status-client-types = "=2.1.7"
 url = "2.3.1"
 base64 = "0.22.1"
-jito-protos        = { path = "/home/ubuntu/shreds_sniper/shredstream-proxy/jito_protos" }
+jito-protos        = { git = "https://github.com/jito-labs/mev-protos.git" }
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
 deadpool-postgres = "0.10"
 aes-gcm = "0.10"
