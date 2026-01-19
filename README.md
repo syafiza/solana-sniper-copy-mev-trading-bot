@@ -139,15 +139,16 @@ https://medium.com/@odinbotio/the-50-trade-challenge-how-odinbot-outpaced-every-
 
 ---
 
-### Node.js Setup
+### Node.js Setup (`node-control-plane`)
 
 1. **Go to Node.js directory**
     ```bash
-    cd "copy sniper bot(node) using gRPC"
+    cd node-control-plane
     ```
 2. **Install dependencies**
     ```bash
     npm install
+    # Ensure PostgreSQL is installed and running
     ```
 3. **Configure environment**
     ```bash
@@ -155,16 +156,8 @@ https://medium.com/@odinbotio/the-50-trade-challenge-how-odinbot-outpaced-every-
     ```
     Edit `.env`:
     ```env
-    RPC_URL=https://api.mainnet-beta.solana.com
-    PRIVATE_KEY=your_private_key_here
-    WALLET=your_wallet_address
-    SWAP_METHOD=solana
-    SLIPPAGE_BPS=50
-    MAX_RETRIES=3
-    RETRY_DELAY=1000
-    TELEGRAM_BOT_TOKEN=your_bot_token
-    TELEGRAM_CHAT_ID=your_chat_id
-    LIMIT_BALANCE=0.1
+    POSTGRES_URI=postgresql://user:password@localhost:5432/solana_bot
+    # ... other vars ...
     ```
 4. **Start the bot**
     ```bash
@@ -172,34 +165,35 @@ https://medium.com/@odinbotio/the-50-trade-challenge-how-odinbot-outpaced-every-
     ```
 
 #### Node.js Features
+- Telegram Control Plane (Admin Interface)
 - gRPC transaction monitoring
-- Telegram integration
-- Multi-platform support
+- PostgreSQL Integration (User Management)
 - Copy & sniper trading
-- Custom alerts with PnL
 
 ---
 
-### Rust Setup
+### Rust Setup (`rust-engine`)
 
 1. **Go to Rust directory**
     ```bash
-    cd "sniper (Rust) using jito Shred stream"
+    cd rust-engine
     ```
 2. **Build**
     ```bash
     cargo build --release
     ```
-3. **Set up PostgreSQL** (for trade logging)
+3. **Set up PostgreSQL**
     ```bash
-    # Install PostgreSQL and create database
-    # Update DB_URL in main.rs if needed
+    # Install PostgreSQL (v14+ recommended, tested with v18)
+    # Create database
+    createdb solana_bot
+    # Initialize Schema
+    psql -d solana_bot -f schema.sql
     ```
 4. **Configure environment**
     ```env
-    RPC_URL=https://api.mainnet-beta.solana.com
-    PRIVATE_KEY=your_private_key_here
-    WALLET=your_wallet_address
+    POSTGRES_CONFIG="host=localhost user=postgres password=password dbname=solana_bot"
+    # ... other vars ...
     ```
 5. **Start the bot**
     ```bash
@@ -207,12 +201,10 @@ https://medium.com/@odinbotio/the-50-trade-challenge-how-odinbot-outpaced-every-
     ```
 
 #### Rust Features
-- JITO shred stream processing
+- Ultra-high performance Jito shred stream processing
 - Advanced MEV strategies
-- Real-time transaction parsing
-- PostgreSQL analytics
-- Multi-threaded for HFT
-- Robust error handling
+- PostgreSQL Integration (Trade Logging & User Fetching)
+- Multi-threaded HFT Engine
 
 ---
 
